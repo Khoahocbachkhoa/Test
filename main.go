@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"project/internal/repository"
+	"project/internal/service"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -23,8 +24,10 @@ func main() {
 	}
 
 	// create repository
-	repo := repository.NewTaskRepository(conn)
+	taskRepo := repository.NewTaskRepository(conn)
 
 	// create service
+	taskService := service.NewTaskService(taskRepo)
 
+	// create handler
 }
