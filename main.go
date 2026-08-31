@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -10,9 +11,16 @@ import (
 	"project/internal/service"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load .env
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Cannot read .env:", err)
+	}
+
 	// Connect database
 	connStr := os.Getenv("DATABASE_URL")
 	conn, err := pgx.Connect(context.Background(), connStr)
