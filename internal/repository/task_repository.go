@@ -5,13 +5,27 @@ import (
 	"database/sql"
 	"errors"
 	"project/internal/model"
+
+	"github.com/jackc/pgx/v5"
 )
 
-type taskRepository struct {
-	db *sql.DB
+var (
+	ErrTaskNotFound = errors.New("Task not found")
+)
+
+type TaskRepository interface {
+	Create(ctx context.Context, task *model.Task) error
+	GetById(ctx context.Context, id int) (*model.Task, error)
+	GetAll(ctx context.Context) ([]model.Task, error)
+	Update(ctx context.Context, task *model.Task) error
+	Delete(ctx context.Context, id int) error
 }
 
-func NewTaskRepository(db *sql.DB) TaskRepository {
+type taskRepository struct {
+	db *pgx.Conn
+}
+
+func NewTaskRepository(db *pgx.Conn) TaskRepository {
 	return &taskRepository{db: db}
 }
 
@@ -22,7 +36,7 @@ func (t *taskRepository) Create(ctx context.Context, task *model.Task) error {
 		returning id
 	`
 
-	err := t.db.QueryRowContext(ctx, query,
+	err := t.db.QueryRow(ctx, query,
 		task.Title,
 		task.Description,
 		task.Status).
@@ -37,17 +51,13 @@ func (t *taskRepository) Create(ctx context.Context, task *model.Task) error {
 
 func (t *taskRepository) Delete(ctx context.Context, id int) error {
 	query := `delete from tasks where id = $1`
-	res, err := t.db.ExecContext(ctx, query, id)
+	res, err := t.db.Exec(ctx, query, id)
 	if err != nil {
 		return err
 	}
 
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return ErrNotFound
+	if res.RowsAffected() == 0 {
+		return ErrTaskNotFound
 	}
 
 	return nil
@@ -55,7 +65,7 @@ func (t *taskRepository) Delete(ctx context.Context, id int) error {
 
 func (t *taskRepository) GetAll(ctx context.Context) ([]model.Task, error) {
 	query := `select * from tasks`
-	rows, err := t.db.QueryContext(ctx, query)
+	rows, err := t.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -90,12 +100,12 @@ func (t *taskRepository) GetById(ctx context.Context, id int) (*model.Task, erro
 	var task model.Task
 
 	err := t.db.
-		QueryRowContext(ctx, query, id).
+		QueryRow(ctx, query, id).
 		Scan(&task.ID, &task.Title, &task.Description, &task.Status)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, ErrTaskNotFound
 		}
 		return nil, err
 	}
@@ -110,17 +120,13 @@ func (t *taskRepository) Update(ctx context.Context, task *model.Task) error {
 		where id = $4
 	`
 
-	res, err := t.db.ExecContext(ctx, query, task.Title, task.Description, task.Status, task.ID)
+	res, err := t.db.Exec(ctx, query, task.Title, task.Description, task.Status, task.ID)
 	if err != nil {
 		return err
 	}
 
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return ErrNotFound
+	if res.RowsAffected() == 0 {
+		return ErrTaskNotFound
 	}
 
 	return nil
