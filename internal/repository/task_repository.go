@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"project/internal/model"
 
@@ -32,7 +31,7 @@ func NewTaskRepository(db *pgx.Conn) TaskRepository {
 func (t *taskRepository) Create(ctx context.Context, task *model.Task) error {
 	query := `
 		insert into tasks(title, description, status)
-		value ($1, $2, $3)
+		values ($1, $2, $3)
 		returning id
 	`
 
@@ -104,7 +103,7 @@ func (t *taskRepository) GetById(ctx context.Context, id int) (*model.Task, erro
 		Scan(&task.ID, &task.Title, &task.Description, &task.Status)
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrTaskNotFound
 		}
 		return nil, err

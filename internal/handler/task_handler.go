@@ -2,9 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"project/internal/model"
+	"project/internal/repository"
 	"project/internal/service"
 	"strconv"
 )
@@ -23,7 +25,7 @@ func (h *taskHandler) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *taskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
-	tasks, err := h.taskService.GetAllTask()
+	tasks, err := h.taskService.GetAllTask(r.Context())
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -40,8 +42,13 @@ func (h *taskHandler) GetTaskByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.taskService.GetTaskByID(id)
+	task, err := h.taskService.GetTaskByID(r.Context(), id)
 	if err != nil {
+		if errors.Is(err, repository.ErrTaskNotFound) {
+			http.Error(w, "Task not found", http.StatusNotFound)
+			return
+		}
+
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -60,7 +67,7 @@ func (h *taskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	err = h.taskService.AddTask(&task)
+	err = h.taskService.AddTask(r.Context(), &task)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -74,17 +81,30 @@ func (h *taskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *taskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "ID format invalid", http.StatusBadRequest)
+		return
+	}
+
 	var task model.Task
 
-	err := json.NewDecoder(r.Body).Decode(&task)
+	task.ID = id
+
+	err = json.NewDecoder(r.Body).Decode(&task)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
 
-	err = h.taskService.UpdateTask(&task)
+	err = h.taskService.UpdateTask(r.Context(), &task)
 	if err != nil {
+		if errors.Is(err, repository.ErrTaskNotFound) {
+			http.Error(w, "Task not found", http.StatusNotFound)
+			return
+		}
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -103,8 +123,13 @@ func (h *taskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.taskService.Delete(id)
+	err = h.taskService.Delete(r.Context(), id)
 	if err != nil {
+		if errors.Is(err, repository.ErrTaskNotFound) {
+			http.Error(w, "Task not found", http.StatusNotFound)
+			return
+		}
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
