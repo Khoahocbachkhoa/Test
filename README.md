@@ -80,7 +80,7 @@ Kiến trúc:
 
 ```
 
-                    Fedora Host
+                    Host
                          │
                   libvirt / NAT
                          │
